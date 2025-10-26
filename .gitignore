@@ -8,6 +8,7 @@ deprecated/
 *.ps1
 
 .claude/
+.claude/*
 
 
 # Session state and pickled data
