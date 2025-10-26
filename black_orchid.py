@@ -1,4 +1,4 @@
-"""Black Orchid: Hot-reloadable MCP proxy server with collision detection."""
+"""Black Orchid: Hot-reloadable MCP proxy server with collision detection/ Hackable scripting for MCP"""
 
 from pathlib import Path
 from typing import Any
