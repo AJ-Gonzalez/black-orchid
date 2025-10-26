@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest:*)",
+      "Bash(move START_HERE.md private )",
+      "Bash(move story_of_us.md private )",
+      "Bash(move collision_handling_approach.txt private)",
+      "Bash(python:*)",
+      "Bash(echo:*)",
+      "Read(//c/Users/Alicia Jadzia/AppData/Roaming/**)",
+      "mcp__Black_Orchid__list_proxy_tools",
+      "mcp__Black_Orchid__use_proxy_tool",
+      "mcp__Black_Orchid__search_for_proxy_tool",
+      "mcp__Black_Orchid__reload_all_modules"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

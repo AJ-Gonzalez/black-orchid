@@ -1,0 +1,43 @@
+# Private folder
+private/
+
+# Deprecated/archived code
+deprecated/
+
+# PowerShell scripts (may contain absolute paths)
+*.ps1
+
+.claude/
+
+
+# Session state and pickled data
+*.pkl
+.black_orchid_state.pkl
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.venv/
+venv/
+ENV/
