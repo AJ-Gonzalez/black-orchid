@@ -9,6 +9,7 @@ deprecated/
 
 .claude/
 .claude/*
+.claude\settings.local.json
 
 
 # Session state and pickled data
