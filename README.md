@@ -1,13 +1,16 @@
-# Black Orchid
 
 ```
-    ____  __           __      ____            __    _     __
-   / __ )/ /___ ______/ /__   / __ \__________/ /_  (_)___/ /
-  / __  / / __ `/ ___/ //_/  / / / / ___/ ___/ __ \/ / __  /   Hackable scripting engine 
- / /_/ / / /_/ / /__/ ,<    / /_/ / /  / /__/ / / / / /_/ /   through an MCP server
-/_____/_/\__,_/\___/_/|_|   \____/_/   \___/_/ /_/_/\__,_/   
-                                                             
+                                       __                               
+_-_ _,,   ,,            ,,           ,-||-,              ,,        |\   
+   -/  )  ||   _        ||          ('|||  )             ||     '   \\  
+  ~||_<   ||  < \,  _-_ ||/\       (( |||--)) ,._-_  _-_ ||/\\ \\  / \\ 
+   || \\  ||  /-|| ||   ||_<       (( |||--))  ||   ||   || || || || || 
+   ,/--|| || (( || ||   || |        ( / |  )   ||   ||   || || || || || 
+  _--_-'  \\  \/\\ \\,/ \\,\         -____-    \\,  \\,/ \\ |/ \\  \\/  
+ (                                                         _/           
+                                                                        
 ```
+# Black Orchid: Hackable scripting engine through an MCP server
 
 Hot-reloadable MCP proxy server for custom Python tools.
 Safe module loading using `importlib` (not `exec`). Auto-discovers tools from Python modules with collision detection.
