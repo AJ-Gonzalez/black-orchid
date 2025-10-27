@@ -437,5 +437,82 @@ def list_rejected_modules() -> list:
     return proxy_handler.rejected_modules
 
 
+@mcp.tool
+def explain_black_orchid() -> str:
+    """Explain Black Orchid's capabilities and list all loaded modules with their purposes.
+
+    This tool provides context about what Black Orchid can do and what proxy tools
+    are available. Run this at session start to understand your available tools.
+
+    Returns:
+        str: Comprehensive explanation of Black Orchid and loaded modules
+    """
+    output = []
+    output.append("=" * 70)
+    output.append("BLACK ORCHID - Hot-Reloadable MCP Proxy Server")
+    output.append("=" * 70)
+    output.append("")
+
+    output.append("CORE CAPABILITIES:")
+    output.append("  • Hot Reload: Reload modules without restarting the server")
+    output.append("  • Collision Detection: Automatic suffix handling for duplicate function names")
+    output.append("  • Path Validation: Security checks to prevent directory traversal")
+    output.append("  • AST Checking: Syntax validation before loading modules")
+    output.append("")
+
+    output.append("NATIVE BLACK ORCHID TOOLS:")
+    output.append("  • check_time() - Get current date and time")
+    output.append("  • list_proxy_tools() - List all available proxy tools")
+    output.append("  • use_proxy_tool(tool_id, kwargs) - Execute a proxy tool")
+    output.append("  • search_for_proxy_tool(term) - Search tools by keyword")
+    output.append("  • reload_all_modules() - Full reload with fresh collision detection")
+    output.append("  • reload_module(name) - Reload a specific module")
+    output.append("  • list_rejected_modules() - See modules that failed to load")
+    output.append("  • explain_black_orchid() - This tool!")
+    output.append("")
+
+    # Get module information
+    module_info = {}
+    for tool_name, info in proxy_handler.registry.items():
+        module_name = info["source_module"]
+        if module_name not in module_info:
+            module = proxy_handler.loaded_mods.get(module_name)
+            module_info[module_name] = {
+                "docstring": module.__doc__ if module and module.__doc__ else "No module docstring",
+                "tools": []
+            }
+        module_info[module_name]["tools"].append(tool_name)
+
+    if module_info:
+        output.append(f"LOADED PROXY MODULES ({len(module_info)} modules, {len(proxy_handler.registry)} tools):")
+        output.append("")
+
+        for module_name in sorted(module_info.keys()):
+            info = module_info[module_name]
+            output.append(f"  [{module_name}]")
+
+            # Clean up docstring (first line only, trimmed)
+            docstring = info["docstring"].strip().split("\n")[0] if info["docstring"] else "No description"
+            output.append(f"    Purpose: {docstring}")
+
+            output.append(f"    Tools ({len(info['tools'])}): {', '.join(sorted(info['tools']))}")
+            output.append("")
+    else:
+        output.append("LOADED PROXY MODULES: None")
+        output.append("")
+
+    if proxy_handler.rejected_modules:
+        output.append(f"REJECTED MODULES ({len(proxy_handler.rejected_modules)}):")
+        for path, reason in proxy_handler.rejected_modules:
+            output.append(f"  • {Path(path).name}: {reason}")
+        output.append("")
+
+    output.append("=" * 70)
+    output.append("TIP: Run this tool at session start to know what's available!")
+    output.append("=" * 70)
+
+    return "\n".join(output)
+
+
 if __name__ == "__main__":
     mcp.run()
