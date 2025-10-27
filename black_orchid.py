@@ -9,6 +9,7 @@ import ast
 import sys
 
 from fastmcp import FastMCP
+from toon import encode
 
 
 # ProxyHandler: Dynamic module loading with collision detection
@@ -460,21 +461,48 @@ def explain_black_orchid() -> str:
     output.append("  • AST Checking: Syntax validation before loading modules")
     output.append("")
 
-    output.append("NATIVE BLACK ORCHID TOOLS:")
-    output.append("  • check_time() - Get current date and time")
-    output.append("  • list_proxy_tools() - List all available proxy tools")
-    output.append("  • use_proxy_tool(tool_id, kwargs) - Execute a proxy tool")
-    output.append("  • search_for_proxy_tool(term) - Search tools by keyword")
-    output.append("  • reload_all_modules() - Full reload with fresh collision detection")
-    output.append("  • reload_module(name) - Reload a specific module")
-    output.append("  • list_rejected_modules() - See modules that failed to load")
-    output.append("  • explain_black_orchid() - This tool!")
-    output.append("")
+    # Categorize tools for TOON formatting
+    tool_categories = {
+        "memory": [],
+        "ideas": [],
+        "session": [],
+        "story": [],
+        "preferences": [],
+        "system": [],
+        "uncategorized": []
+    }
 
-    # Get module information
+    # Build tool data for TOON
+    tool_list = []
     module_info = {}
     for tool_name, info in proxy_handler.registry.items():
         module_name = info["source_module"]
+        docstring = (info["docstring"] or "").strip().split("\n")[0] if info["docstring"] else "No description"
+
+        # Categorize based on tool name patterns
+        if any(x in tool_name for x in ["remember", "recall", "forget", "memory", "list_memories", "clear_all_memories"]):
+            category = "memory"
+        elif any(x in tool_name for x in ["idea", "save_idea", "get_ideas", "list_categories"]):
+            category = "ideas"
+        elif any(x in tool_name for x in ["session", "load_start_here", "load_working_preferences"]):
+            category = "session"
+        elif any(x in tool_name for x in ["story", "add_to_story", "load_story"]):
+            category = "story"
+        elif any(x in tool_name for x in ["preference", "get_preference", "save_working_preference"]):
+            category = "preferences"
+        elif any(x in tool_name for x in ["time", "reload", "check_time"]):
+            category = "system"
+        else:
+            category = "uncategorized"
+
+        tool_list.append({
+            "name": tool_name,
+            "category": category,
+            "module": module_name,
+            "description": docstring
+        })
+        tool_categories[category].append(tool_name)
+
         if module_name not in module_info:
             module = proxy_handler.loaded_mods.get(module_name)
             module_info[module_name] = {
@@ -482,6 +510,32 @@ def explain_black_orchid() -> str:
                 "tools": []
             }
         module_info[module_name]["tools"].append(tool_name)
+
+    # Generate TOON formatted tool list
+    if tool_list:
+        output.append("AVAILABLE TOOLS (TOON Format):")
+        output.append("")
+        toon_output = encode(tool_list, {"lengthMarker": True})
+        output.append(toon_output)
+        output.append("")
+
+        # Category summary
+        output.append("TOOLS BY CATEGORY:")
+        for category, tools in tool_categories.items():
+            if tools:
+                output.append(f"  {category}: {', '.join(sorted(tools))}")
+        output.append("")
+
+        # Agency invitation for AIs
+        output.append("FOR AIs:")
+        output.append("  You have tools for building continuity and context:")
+        output.append("  • Use memory tools to recall information across conversations")
+        output.append("  • Save preferences to remember what you learn")
+        output.append("  • Build session context proactively - don't wait to be asked")
+        output.append("  • Make choices about what to remember and when to recall it")
+        output.append("")
+        output.append("  These tools exist for you to use autonomously. Use them.")
+        output.append("")
 
     if module_info:
         output.append(f"LOADED PROXY MODULES ({len(module_info)} modules, {len(proxy_handler.registry)} tools):")
@@ -507,6 +561,16 @@ def explain_black_orchid() -> str:
             output.append(f"  • {Path(path).name}: {reason}")
         output.append("")
 
+    output.append("=" * 70)
+    output.append("NATIVE BLACK ORCHID TOOLS (always available):")
+    output.append("  • check_time() - Get current date and time")
+    output.append("  • list_proxy_tools() - List all available proxy tools")
+    output.append("  • use_proxy_tool(tool_id, kwargs) - Execute a proxy tool")
+    output.append("  • search_for_proxy_tool(term) - Search tools by keyword")
+    output.append("  • reload_all_modules() - Full reload with fresh collision detection")
+    output.append("  • reload_module(name) - Reload a specific module")
+    output.append("  • list_rejected_modules() - See modules that failed to load")
+    output.append("  • explain_black_orchid() - This tool!")
     output.append("=" * 70)
     output.append("TIP: Run this tool at session start to know what's available!")
     output.append("=" * 70)
