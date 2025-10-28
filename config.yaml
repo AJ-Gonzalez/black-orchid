@@ -1,0 +1,29 @@
+# Black Orchid Public Configuration
+# This config affects general settings and public modules
+
+# Module loading behavior
+modules:
+  # Public modules directory
+  directory: "./modules"
+
+  # Whether to show detailed module loading info
+  verbose_loading: false
+
+# System settings
+system:
+  # Logging level: DEBUG, INFO, WARNING, ERROR
+  logging_level: "INFO"
+
+  # Whether to show tool docstrings in MCP tool list
+  show_docstrings: true
+
+# Feature flags for public modules
+features:
+  # System utilities (get_os_info, etc.)
+  system_utils: true
+
+  # Session preferences (working_preferences.md)
+  session_utils: true
+
+  # Config management
+  config_manager: true
