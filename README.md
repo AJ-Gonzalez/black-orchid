@@ -10,14 +10,17 @@ _-_ _,,   ,,            ,,           ,-||-,              ,,        |\
  (                                                         _/           
                                                                         
 ```
-# Black Orchid: Hackable scripting engine through an MCP server
+# Black Orchid: An Extendable Collaborative Environment Framework
 
-Hot-reloadable MCP proxy server for custom Python tools.
-Safe module loading using `importlib` (not `exec`). Auto-discovers tools from Python modules with collision detection.
+Delivered as an MCP server, it allows dynamic creation of tools and skills for working with AI through Claude Code or any system that accepts MCP
+It's a hot-reloadable MCP proxy server for custom Python tools, a hub for global (not project bound) skills. Uses safe module loading using`importlib` (not `exec`). And auto-discovers tools from Python modules with collision detection.
 
-Built for Claude Code primarily but should work with any other setup that accepts MCP.
 
-**It's basically a hackable scripting engine through an MCP server, you can add tools, scripts, etc.**
+**Dynamic collaboration, hackable scripting, extensions on the fly**
+
+Add your own skills, and use them with any project, add your own tools. 
+
+This is both a collaborative space and a platform to extend capabilities. 
 
 Still highly experimental. Feedback and contributions are welcome!
 
@@ -28,46 +31,135 @@ Still highly experimental. Feedback and contributions are welcome!
 - Auto-discovers tools from Python modules
 - Collision detection for duplicate function names
 - Public and private module support
-
-## How It Works
-
-- Scans `modules/` (public) and `private/modules/` (private) folders
-- Loads all .py files as tools
-- Each function in a module becomes an MCP tool
-- Hot reload without restarting server
-- Path validation and syntax checking for security
+- Claude skills with auto discovery
 
 ## Installation
 
+Please see `requirements.txt`, below are a couple ways to set it up.
+
+### Quick setup:
+
 `claude mcp add --transport stdio Black_Orchid python "absolute/path/to/black_orchid.py"`
 
-Note: Requires absolute path to black_orchid.py and `fastmcp` installed globally, otherwise you will need to change the command.
+Note: Requires absolute path to black_orchid.py and `fastmcp` installed globally, otherwise you will need to change the command. you will also need `python-toon` and `pyyaml`. This will only intall Black Orchid per folder. 
+
+### For a global install: 
+
+Please note Claude stores the GLOBAL MCP servers in a top level `mcpServers` property inside the `/Users/USERNAME/.claude.json`.
+
+That is where you must add the command, and note you can use the fastmcp runner, UV, or simply run it with a venv you create if you wish to isolate dependencies.
+
+## How It Works
+
+Black Orchid lets you separate your skills, extension modules, and anything else into private and public folders, this is so if you fork the repo you can simply gitignore the private folder. Use this for personal things, sensitive data, etc. 
+
+More publicly available default modules will continue to be added. 
+
+For skills: 
+
+- Scans `modules/skills/` (public) and `private/modules/skills` folders. 
+- Lets Claude list the available skills 
+- Embody skill: Claude has the skill and uses it
+- Spawn agent: Claude sets up an agent with that skill then assigns them a task.
+
+For tools:
+
+- Scans `modules/` (public) and `private/modules/` (private) folders
+- Loads all .py files as tools
+- Each public function (not starting with `_`) in a module becomes an MCP tool
+- Hot reload without restarting server
+- Path validation and syntax checking for security
+
 
 ## Available Built-in Tools
 
-**System Utils:**
-- `get_os_info()` - cross-platform OS detection and system information
+### Working with Skills
 
-**Session Utils:**
-- `load_working_preferences()` - load collaboration preferences
-- `save_working_preference(key, value)` - save a preference
-- `get_preference(key)` - lookup specific preference
+*Skills are portable collaboration modes - ways of thinking and working that travel with you across projects.*
 
-**Session Memory:**
-- `remember(key, value)` - store ephemeral data for current session
+- `list_skills()` - see what modes are available (from both `modules/skills/` and `private/skills/`)
+- `use_skill(skill_name)` - embody a skill in your current session
+- `spawn_subagent_with_skill(skill_name, task)` - create a specialized agent with a skill as their context
+
+*Want a new skill? Just create a markdown file in `modules/skills/` or `private/skills/` and call `reload_all_modules()`. Skills you create are immediately available.*
+
+---
+
+### Built-in Skills
+
+Black Orchid comes with public skills to get you started:
+
+**documentation-optimizer** - Transform verbose documentation into LLM-friendly, token-efficient markdown
+- Marks human/AI scope boundaries clearly (🚫 human required, ✅ AI can handle, ⚠️ collaboration needed)
+- Optimizes for token efficiency while preserving essential information
+- Structures docs for quick lookup without repeated fetching
+- Provides templates and guidelines for different doc types
+
+*Especially useful when integrating new frameworks or APIs - fetch the docs once, optimize them, and reference them across sessions without re-fetching.*
+
+**project-estimator** - Collaborative project scoping and time estimation
+- Breaks down complex projects into estimable components
+- Considers uncertainty and dependencies
+- Provides ranges rather than false precision
+- Helps surface hidden complexity early
+
+*Use this when planning new features or projects - it helps turn "I want to build X" into "here's what X actually involves and how long it might take."*
+
+**documentation-state-reviewer** - Systematic documentation auditing
+- Examines actual code to understand what exists
+- Reads current documentation
+- Asks clarifying questions about intent and priorities
+- Identifies gaps (features that exist but aren't documented)
+- Identifies staleness (documentation that's outdated)
+- Provides unbiased assessment of what needs updating
+
+*Use this when you suspect your docs are out of sync with reality - it helps catch the gaps between "what we built" and "what we documented."*
+
+---
+
+### Managing Your Session
+
+*Keep context alive across the conversation without bloating your context window.*
+
+**Session Memory** (ephemeral - lives only in current session):
+- `remember(key, value)` - store data for this session
 - `recall(key)` - retrieve stored data
 - `forget(key)` - remove specific memory
 - `list_memories()` - see all stored keys
-- `clear_all_memories()` - clear all session memory
+- `clear_all_memories()` - wipe the slate clean
 
-**Reload Tools:**
-- `reload_all_modules()` - reload all modules from scratch
-- `reload_module(module_name)` - reload specific module
-- `list_rejected_modules()` - debug module loading issues
+**Working Preferences** (persistent - survives across sessions):
+- `load_working_preferences()` - load your collaboration preferences
+- `save_working_preference(key, value)` - save a preference for future sessions
+- `get_preference(key)` - lookup specific preference
+
+*Session memory is for "remember this API response for the next few turns." Preferences are for "I always want dark mode" or "my preferred code style is X."*
+
+---
+
+### System Information
+
+*Know your environment so you can write cross-platform code.*
+
+- `get_os_info()` - cross-platform OS detection and system information
+
+*Returns platform, version, architecture - useful for conditional logic in your modules.*
+
+---
+
+### Hot Reloading & Debugging
+
+*Made changes? See them instantly. Something broken? Find out why.*
+
+- `reload_all_modules()` - reload all modules from scratch (tools and skills)
+- `reload_module(module_name)` - reload just one specific module
+- `list_rejected_modules()` - see which modules failed to load and why
+
+*This is the magic - edit a Python file, call reload, and your changes are live. No server restart, no cache clearing, just instant feedback.*
 
 ## Creating Your Own Modules
 
-You can create modules and have your own custom utilities, wrap APIs, whatever you can imagine. 
+You can create modules and have your own custom utilities, wrap APIs, whatever you can imagine.
 
 Here's how:
 
@@ -76,12 +168,35 @@ Here's how:
 3. Call `reload_all_modules()` to load new tools
 4. Functions become available as MCP tools
 
-Example simple module:
+**Example simple module:**
 ```python
 def hello_world():
     """Say hello to the world."""
     return "Hello, World!"
 ```
+
+**Example with arguments:**
+```python
+def greet_person(name: str, enthusiasm: int = 5):
+    """Greet a person with configurable enthusiasm.
+
+    Args:
+        name: The person's name
+        enthusiasm: How many exclamation marks (default: 5)
+
+    Returns:
+        A greeting string
+    """
+    return f"Hello, {name}{'!' * enthusiasm}"
+```
+
+When called via Black Orchid: `use_proxy_tool("greet_person", {"name": "Alice", "enthusiasm": 3})` returns `"Hello, Alice!!!"`
+
+**Error Handling:**
+If a tool is called with incorrect arguments, Black Orchid returns a clear error message:
+- Missing required argument: `"Error calling tool 'greet_person': missing required argument 'name'"`
+- Wrong argument type: `"Error calling tool 'greet_person': argument 'enthusiasm' must be int, not str"`
+- Unexpected argument: `"Error calling tool 'greet_person': unexpected keyword argument 'volume'"`
 
 **Important Notes:**
 
@@ -171,7 +286,8 @@ Black Orchid is designed with security in mind, but follows a "trust but verify"
 
 ## Contributing
 
-Contribution and feedback is always welcome. Thank you for reading, please tell me of any feature requests, bugs, or anything else. 
+Contribution and feedback is always welcome. Skills, Tools, whatever you decide to add or create.
+Thank you for reading, please tell me of any feature requests, bugs, or anything else. 
 
 ## Licensing stuff
 

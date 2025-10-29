@@ -176,6 +176,19 @@ When this skill is invoked, you will typically be given:
 2. **Summary of what was removed** (so human knows what's missing)
 3. **Suggestions for human actions** (if any are needed before AI work begins)
 4. **Recommended filename** (e.g., `stripe-integration-optimized.md`)
+5. **Accessibility reminder** - Prompt the human to add a link in their project README so the optimized docs are discoverable in future sessions:
+
+```markdown
+✅ Optimized documentation created!
+
+**Next step for accessibility:**
+Add this to your project README so these optimized docs are easy to find:
+
+## For AI Collaboration
+- [Framework Name - LLM-Optimized Docs](path/to/optimized-doc.md)
+
+This makes the optimized docs discoverable in future sessions without re-fetching or re-optimizing.
+```
 
 ## Examples
 
