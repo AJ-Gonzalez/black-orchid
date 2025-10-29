@@ -83,27 +83,35 @@ class ProxyHandler:
         for mod_path in self.okmods:
             mod_name = Path(mod_path).stem
 
-            # Import the module from file path using importlib.util
-            spec = spec_from_file_location(mod_name, mod_path)
-            if spec is None or spec.loader is None:
+            try:
+                # Import the module from file path using importlib.util
+                spec = spec_from_file_location(mod_name, mod_path)
+                if spec is None or spec.loader is None:
+                    continue
+
+                tmod = module_from_spec(spec)
+                sys.modules[mod_name] = tmod
+                spec.loader.exec_module(tmod)
+                self.loaded_mods[mod_name] = tmod
+
+                # Extract toolable endpoints (functions)
+                # Filter out dunder methods, non-lowercase, and underscore-prefixed helpers
+                clean_list = [x for x in dir(tmod) if "__" not in x and x.islower() and not x.startswith('_')]
+
+                # Register each function with collision detection
+                for fn_name in clean_list:
+                    self._register_tool(
+                        original_name=fn_name,
+                        module_name=mod_name,
+                        function=getattr(tmod, fn_name)
+                    )
+            except Exception as e:
+                # Track modules that fail to load due to import or other errors
+                import traceback as tb
+                error_details = ''.join(tb.format_exception(type(e), e, e.__traceback__))
+                self.rejected_modules.append((mod_path, f"import_error: {str(e)}"))
+                # Continue loading other modules
                 continue
-
-            tmod = module_from_spec(spec)
-            sys.modules[mod_name] = tmod
-            spec.loader.exec_module(tmod)
-            self.loaded_mods[mod_name] = tmod
-
-            # Extract toolable endpoints (functions)
-            # Filter out dunder methods, non-lowercase, and underscore-prefixed helpers
-            clean_list = [x for x in dir(tmod) if "__" not in x and x.islower() and not x.startswith('_')]
-
-            # Register each function with collision detection
-            for fn_name in clean_list:
-                self._register_tool(
-                    original_name=fn_name,
-                    module_name=mod_name,
-                    function=getattr(tmod, fn_name)
-                )
 
     def _register_tool(self, original_name: str, module_name: str, function: callable):
         """Register a tool with collision detection.
