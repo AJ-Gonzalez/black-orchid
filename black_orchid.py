@@ -405,6 +405,80 @@ def search_for_proxy_tool(search_term: str) -> dict:
 
 
 @mcp.tool
+def inspect_proxy_tool(tool_id: str) -> dict:
+    """Inspect a specific proxy tool's signature and parameters.
+
+    Returns detailed specification for a single tool without loading all tools.
+    Much more token-efficient than list_proxy_tools() when you just need one.
+
+    Args:
+        tool_id (str): Tool name to inspect
+
+    Returns:
+        dict: Tool specification including signature, parameters, docstring, and metadata
+
+    Example:
+        >>> inspect_proxy_tool("get_config")
+        {
+            "tool_id": "get_config",
+            "signature": "get_config(scope: str, key_path: str = None)",
+            "parameters": {
+                "scope": {"type": "str", "required": True},
+                "key_path": {"type": "str", "required": False, "default": "None"}
+            },
+            "docstring": "Read configuration value...",
+            "source_module": "config_manager"
+        }
+    """
+    import inspect as insp
+
+    if tool_id not in proxy_handler.registry:
+        return {
+            "error": f"Tool '{tool_id}' not found",
+            "available_tools": list(proxy_handler.registry.keys())
+        }
+
+    tool_info = proxy_handler.registry[tool_id]
+    function = tool_info["function"]
+
+    # Extract function signature
+    try:
+        sig = insp.signature(function)
+        signature_str = f"{tool_id}{sig}"
+
+        # Build parameter details
+        parameters = {}
+        for param_name, param in sig.parameters.items():
+            param_info = {"required": param.default == insp.Parameter.empty}
+
+            # Extract type annotation if available
+            if param.annotation != insp.Parameter.empty:
+                param_info["type"] = str(param.annotation).replace("<class '", "").replace("'>", "")
+            else:
+                param_info["type"] = "Any"
+
+            # Include default value if present
+            if param.default != insp.Parameter.empty:
+                param_info["default"] = repr(param.default)
+
+            parameters[param_name] = param_info
+
+    except Exception as e:
+        signature_str = f"Error extracting signature: {e}"
+        parameters = {}
+
+    return {
+        "tool_id": tool_id,
+        "signature": signature_str,
+        "parameters": parameters,
+        "docstring": tool_info["docstring"] or "No docstring available",
+        "source_module": tool_info["source_module"],
+        "original_name": tool_info["original_name"],
+        "had_collision": tool_info["had_collision"]
+    }
+
+
+@mcp.tool
 def reload_all_modules() -> str:
     """Reload all proxy modules from scratch.
 
@@ -573,6 +647,7 @@ def explain_black_orchid() -> str:
     output.append("NATIVE BLACK ORCHID TOOLS (always available):")
     output.append("  • check_time() - Get current date and time")
     output.append("  • list_proxy_tools() - List all available proxy tools")
+    output.append("  • inspect_proxy_tool(tool_id) - Get detailed spec for one tool (token-efficient!)")
     output.append("  • use_proxy_tool(tool_id, kwargs) - Execute a proxy tool")
     output.append("  • search_for_proxy_tool(term) - Search tools by keyword")
     output.append("  • reload_all_modules() - Full reload with fresh collision detection")
