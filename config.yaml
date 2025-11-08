@@ -27,3 +27,17 @@ features:
 
   # Config management
   config_manager: true
+
+# Semantic memory domain configuration
+# Domains define separate knowledge collections with different purposes
+# Users can add custom domains by extending this section
+domains:
+  # Technical knowledge: code patterns, decisions, lessons learned
+  technical:
+    enabled: true
+    description: "Technical decisions, code patterns, and lessons learned"
+
+  # Reference library: documentation, books, papers
+  library:
+    enabled: true
+    description: "Reference materials, books, papers, and documentation"

@@ -137,6 +137,98 @@ Black Orchid comes with public skills to get you started:
 
 ---
 
+### Semantic Memory & Knowledge Management
+
+*Persistent, hierarchical memory system for technical knowledge, reference libraries, and custom domains.*
+
+Black Orchid includes a semantic memory system that lets you build searchable knowledge bases from markdown documents. Unlike simple file storage, semantic memory uses embeddings to enable intelligent search - ask questions in natural language and get relevant results with full provenance.
+
+**Core Functions:**
+
+- `initialize_semantic_memory()` - Set up ChromaDB and create collections
+- `ingest_document(file_path, domain)` - Add a markdown file to memory
+- `query_memory(text, domain, n_results)` - Search semantically with natural language
+- `rebuild_domain(domain)` - Batch process all files in a domain
+- `get_collections()` - See stats for all memory collections
+
+**How It Works:**
+
+1. **Hierarchical Structure** - Documents are parsed into L0 (document), L1 (sections), L2 (subsections)
+2. **Provenance Tracking** - Every result shows exactly where it came from (`book > chapter > section`)
+3. **Domain Organization** - Separate collections for different knowledge types
+4. **Semantic Search** - Query with questions, not keywords
+
+**Example Usage:**
+
+```python
+# Initialize the system
+initialize_semantic_memory()
+
+# Add documents to memory
+ingest_document("sources/library/power_electronics.md", domain="library")
+ingest_document("sources/technical/decisions.md", domain="technical")
+
+# Search semantically
+results = query_memory("MOSFET switching behavior", domain="library", n_results=3)
+# Returns: matches with full context and provenance paths
+```
+
+**Configurable Domains:**
+
+Domains are configured via YAML (see Configuration section below). Public config defines default domains (technical, library), while private config can add custom domains.
+
+**Storage:**
+
+- Documents: `sources/{domain}/` - Your markdown files
+- Database: `db/chroma/` - Embeddings and metadata (gitignored)
+- Uses ChromaDB with `sentence-transformers/all-MiniLM-L6-v2` embedding model
+- Runs locally, no external APIs needed
+
+*Perfect for building personal knowledge bases, documenting technical decisions, or creating queryable reference libraries.*
+
+---
+
+### Configuration
+
+*Customize Black Orchid behavior through YAML config files.*
+
+Black Orchid uses a two-tier configuration system:
+
+- **Public config** (`config.yaml`) - Settings committed to git
+- **Private config** (`private/config.yaml`) - Personal settings (gitignored)
+
+**Domain Configuration Example:**
+
+```yaml
+# config.yaml (public)
+domains:
+  technical:
+    enabled: true
+    description: "Technical decisions and code patterns"
+  library:
+    enabled: true
+    description: "Reference materials and documentation"
+```
+
+```yaml
+# private/config.yaml (private)
+domains:
+  custom_domain:
+    enabled: true
+    description: "Your custom knowledge domain"
+```
+
+Domains from both configs merge at runtime, enabling extensibility without modifying public code.
+
+**Config Functions:**
+
+- `get_config(scope, key_path)` - Read config value
+- `set_config(scope, key_path, value)` - Update config
+- `reload_config(scope)` - Hot reload config from disk
+- `get_enabled_domains()` - List all enabled memory domains
+
+---
+
 ### System Information
 
 *Know your environment so you can write cross-platform code.*

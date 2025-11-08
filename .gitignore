@@ -43,3 +43,11 @@ Thumbs.db
 .venv/
 venv/
 ENV/
+
+# Semantic memory - private data
+sources/
+!sources/README.md
+db/
+*.db
+*.sqlite3
+.chroma/

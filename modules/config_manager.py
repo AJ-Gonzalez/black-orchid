@@ -214,3 +214,93 @@ def get_config_paths() -> dict:
         "public": str(PUBLIC_CONFIG_PATH),
         "private": str(PRIVATE_CONFIG_PATH)
     }
+
+
+def get_enabled_domains() -> list:
+    """
+    Get list of enabled domain names from both public and private configs.
+
+    Merges domains from public and private configs, returning only enabled ones.
+    This allows public config to define default domains while private config
+    can add additional domains (like 'custom') that aren't in the public codebase.
+
+    Returns:
+        List of enabled domain names
+
+    Example:
+        >>> get_enabled_domains()
+        ['technical', 'library', 'custom']
+    """
+    domains = []
+
+    with _config_lock:
+        # Get domains from public config
+        public_domains = _configs["public"].get("domains", {})
+        for domain_name, domain_config in public_domains.items():
+            if isinstance(domain_config, dict) and domain_config.get("enabled", False):
+                domains.append(domain_name)
+
+        # Get domains from private config (if exists)
+        private_domains = _configs["private"].get("domains", {})
+        for domain_name, domain_config in private_domains.items():
+            if isinstance(domain_config, dict) and domain_config.get("enabled", False):
+                if domain_name not in domains:  # Avoid duplicates
+                    domains.append(domain_name)
+
+    return domains
+
+
+def get_domain_config(domain_name: str) -> dict:
+    """
+    Get configuration for a specific domain.
+
+    Checks private config first (takes precedence), then public config.
+
+    Args:
+        domain_name: Name of the domain to retrieve
+
+    Returns:
+        Domain configuration dict
+
+    Raises:
+        KeyError: If domain not found in either config
+
+    Example:
+        >>> get_domain_config("technical")
+        {'enabled': True, 'description': 'Technical decisions...'}
+    """
+    with _config_lock:
+        # Check private config first (takes precedence)
+        private_domains = _configs["private"].get("domains", {})
+        if domain_name in private_domains:
+            return private_domains[domain_name].copy()
+
+        # Check public config
+        public_domains = _configs["public"].get("domains", {})
+        if domain_name in public_domains:
+            return public_domains[domain_name].copy()
+
+        raise KeyError(f"Domain '{domain_name}' not found in config")
+
+
+def is_domain_enabled(domain_name: str) -> bool:
+    """
+    Check if a domain is enabled.
+
+    Args:
+        domain_name: Name of the domain to check
+
+    Returns:
+        True if domain exists and is enabled, False otherwise
+
+    Example:
+        >>> is_domain_enabled("technical")
+        True
+        >>> is_domain_enabled("nonexistent")
+        False
+    """
+    try:
+        config = get_domain_config(domain_name)
+        return config.get("enabled", False)
+    except KeyError:
+        return False
