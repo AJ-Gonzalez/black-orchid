@@ -47,8 +47,24 @@ try:
 except ImportError:
     # Fallback if config_manager not available
     def get_enabled_domains():
+        """
+        Get list of enabled semantic memory domains from configuration.
+
+        Returns:
+            list: Enabled domain names (e.g., ['personal', 'technical', 'library'])
+        """
         return ['technical', 'library']
+
     def is_domain_enabled(domain):
+        """
+        Check if a semantic memory domain is enabled in configuration.
+
+        Args:
+            domain: Domain name to check (e.g., 'personal', 'technical', 'library')
+
+        Returns:
+            bool: True if domain is enabled, False otherwise
+        """
         return domain in get_enabled_domains()
 
 
@@ -138,7 +154,7 @@ def get_collections() -> Dict[str, Any]:
         }
 
 
-def parse_markdown_hierarchy(file_path: str) -> Dict[str, Any]:
+def _parse_markdown_hierarchy(file_path: str) -> Dict[str, Any]:
     """
     Parse markdown file into hierarchical structure based on headers.
 
@@ -154,7 +170,7 @@ def parse_markdown_hierarchy(file_path: str) -> Dict[str, Any]:
         dict: Hierarchical structure with nodes at each level
 
     Example:
-        >>> parse_markdown_hierarchy("sources/technical/decisions.md")
+        >>> _parse_markdown_hierarchy("sources/technical/decisions.md")
         {'success': True, 'hierarchy': {...}, 'levels': 2}
     """
     try:
@@ -271,7 +287,7 @@ def parse_markdown_hierarchy(file_path: str) -> Dict[str, Any]:
         }
 
 
-def detect_document_format(file_path: str) -> str:
+def _detect_document_format(file_path: str) -> str:
     """
     Detect document format from file extension.
 
@@ -297,7 +313,7 @@ def detect_document_format(file_path: str) -> str:
     return format_map.get(extension, 'unknown')
 
 
-def parse_pdf_document(file_path: str) -> Dict[str, Any]:
+def _parse_pdf_document(file_path: str) -> Dict[str, Any]:
     """
     Parse PDF document into hierarchical structure using pymupdf4llm.
 
@@ -434,7 +450,7 @@ def parse_pdf_document(file_path: str) -> Dict[str, Any]:
         }
 
 
-def parse_epub_document(file_path: str) -> Dict[str, Any]:
+def _parse_epub_document(file_path: str) -> Dict[str, Any]:
     """
     Parse EPUB document into hierarchical structure.
 
@@ -530,7 +546,7 @@ def parse_epub_document(file_path: str) -> Dict[str, Any]:
         }
 
 
-def parse_mobi_document(file_path: str) -> Dict[str, Any]:
+def _parse_mobi_document(file_path: str) -> Dict[str, Any]:
     """
     Parse MOBI document by converting to EPUB first.
 
@@ -567,7 +583,7 @@ def parse_mobi_document(file_path: str) -> Dict[str, Any]:
                 }
 
             # Parse as EPUB
-            result = parse_epub_document(epub_path)
+            result = _parse_epub_document(epub_path)
 
             # Update format in result
             if result['success']:
@@ -614,16 +630,16 @@ def ingest_document(file_path: str, domain: str = 'library') -> Dict[str, Any]:
             }
 
         # Detect format and route to appropriate parser
-        doc_format = detect_document_format(file_path)
+        doc_format = _detect_document_format(file_path)
 
         if doc_format == 'markdown':
-            parse_result = parse_markdown_hierarchy(file_path)
+            parse_result = _parse_markdown_hierarchy(file_path)
         elif doc_format == 'pdf':
-            parse_result = parse_pdf_document(file_path)
+            parse_result = _parse_pdf_document(file_path)
         elif doc_format == 'epub':
-            parse_result = parse_epub_document(file_path)
+            parse_result = _parse_epub_document(file_path)
         elif doc_format == 'mobi':
-            parse_result = parse_mobi_document(file_path)
+            parse_result = _parse_mobi_document(file_path)
         else:
             return {
                 'success': False,
@@ -899,11 +915,24 @@ def rebuild_personal_domain() -> Dict[str, Any]:
         >>> rebuild_personal_domain()
         {'success': True, 'files_processed': 30, 'nodes_added': 280, 'domain': 'personal'}
     """
-    personal_paths = [
+    # Build list of paths that exist
+    personal_paths = []
+    potential_paths = [
         'private/story',
         'private/notes',
         'private/reference'
     ]
+
+    for path_str in potential_paths:
+        if Path(path_str).exists():
+            personal_paths.append(path_str)
+
+    if not personal_paths:
+        return {
+            'success': False,
+            'error': 'No personal domain directories found. Create at least one of: private/story, private/notes, private/reference'
+        }
+
     return rebuild_domain('personal', source_paths=personal_paths)
 
 
@@ -921,20 +950,3 @@ def rebuild_technical_domain() -> Dict[str, Any]:
         {'success': True, 'files_processed': 8, 'nodes_added': 124, 'domain': 'technical'}
     """
     return rebuild_domain('technical', source_paths=['private/design_docs'])
-
-
-def rebuild_library_domain() -> Dict[str, Any]:
-    """
-    Rebuild library memory domain from sources/library/.
-
-    Scans and embeds all documents in library: PDF, EPUB, MOBI, and markdown files.
-    Supports technical books, reference materials, and documentation.
-
-    Returns:
-        dict: Rebuild status with file counts
-
-    Example:
-        >>> rebuild_library_domain()
-        {'success': True, 'files_processed': 12, 'nodes_added': 1847, 'domain': 'library'}
-    """
-    return rebuild_domain('library', source_paths=['sources/library'])

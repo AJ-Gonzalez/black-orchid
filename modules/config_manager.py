@@ -60,7 +60,7 @@ def _save_yaml_file(path: Path, data: dict) -> None:
 def _get_nested_value(data: dict, key_path: str) -> Any:
     """
     Get value from nested dict using dot notation.
-    Example: "paths.story_of_us" -> data["paths"]["story_of_us"]
+    Example: "paths.custom_path" -> data["paths"]["custom_path"]
     """
     keys = key_path.split(".")
     current = data
@@ -79,7 +79,7 @@ def _set_nested_value(data: dict, key_path: str, value: Any) -> None:
     """
     Set value in nested dict using dot notation.
     Creates intermediate dicts as needed.
-    Example: "paths.story_of_us" -> data["paths"]["story_of_us"] = value
+    Example: "paths.custom_path" -> data["paths"]["custom_path"] = value
     """
     keys = key_path.split(".")
     current = data
@@ -115,14 +115,14 @@ def get_config(scope: str = "public", key_path: Optional[str] = None) -> Any:
 
     Args:
         scope: "public" or "private"
-        key_path: Dot-notation path to config value (e.g., "paths.story_of_us")
+        key_path: Dot-notation path to config value (e.g., "paths.custom_path")
                   If None, returns entire config dict
 
     Returns:
         Configuration value or entire config dict
 
     Example:
-        get_config("private", "paths.story_of_us")
+        get_config("private", "paths.custom_path")
         get_config("public")  # Returns entire public config
     """
     if scope not in ["public", "private"]:
@@ -146,14 +146,14 @@ def set_config(scope: str, key_path: str, value: Any) -> str:
 
     Args:
         scope: "public" or "private"
-        key_path: Dot-notation path to config value (e.g., "paths.story_of_us")
+        key_path: Dot-notation path to config value (e.g., "paths.custom_path")
         value: Value to set (can be any YAML-serializable type)
 
     Returns:
         Success message
 
     Example:
-        set_config("private", "paths.story_of_us", "./private/story")
+        set_config("private", "paths.custom_path", "./private/story")
         set_config("public", "logging.level", "INFO")
     """
     if scope not in ["public", "private"]:

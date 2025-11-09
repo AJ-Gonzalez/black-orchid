@@ -51,3 +51,7 @@ db/
 *.db
 *.sqlite3
 .chroma/
+
+# logs
+
+*.log
