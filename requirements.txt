@@ -2,3 +2,10 @@ fastmcp
 python-toon
 pyyaml
 chromadb
+
+# E-book parsing for semantic memory library domain
+pymupdf4llm>=0.12.0     # PDF to markdown, optimized for LLMs
+ebooklib>=0.18          # EPUB parsing
+beautifulsoup4>=4.12    # HTML parsing for EPUB content
+mobi>=0.3.3             # MOBI unpacking/conversion
+lxml>=4.9               # Fast XML/HTML parsing

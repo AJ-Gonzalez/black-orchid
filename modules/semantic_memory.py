@@ -18,6 +18,28 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 import re
 from datetime import datetime
+import tempfile
+
+# E-book parsing libraries (optional imports with graceful fallback)
+try:
+    import pymupdf4llm
+    PYMUPDF_AVAILABLE = True
+except ImportError:
+    PYMUPDF_AVAILABLE = False
+
+try:
+    import ebooklib
+    from ebooklib import epub
+    from bs4 import BeautifulSoup
+    EPUB_AVAILABLE = True
+except ImportError:
+    EPUB_AVAILABLE = False
+
+try:
+    import mobi
+    MOBI_AVAILABLE = True
+except ImportError:
+    MOBI_AVAILABLE = False
 
 # Import config manager for domain configuration
 try:
@@ -249,22 +271,338 @@ def parse_markdown_hierarchy(file_path: str) -> Dict[str, Any]:
         }
 
 
-def ingest_document(file_path: str, domain: str = 'library') -> Dict[str, Any]:
+def detect_document_format(file_path: str) -> str:
     """
-    Ingest a markdown document into semantic memory.
-
-    Parses hierarchical structure and embeds each level in ChromaDB.
+    Detect document format from file extension.
 
     Args:
-        file_path: Path to markdown file
-        domain: Memory domain (e.g., 'technical', 'library', 'custom')
+        file_path: Path to document
+
+    Returns:
+        str: Format type ('pdf', 'epub', 'mobi', 'markdown', 'unknown')
+    """
+    path = Path(file_path)
+    extension = path.suffix.lower()
+
+    format_map = {
+        '.md': 'markdown',
+        '.markdown': 'markdown',
+        '.pdf': 'pdf',
+        '.epub': 'epub',
+        '.mobi': 'mobi',
+        '.azw': 'mobi',  # Kindle format, similar to MOBI
+        '.azw3': 'mobi'
+    }
+
+    return format_map.get(extension, 'unknown')
+
+
+def parse_pdf_document(file_path: str) -> Dict[str, Any]:
+    """
+    Parse PDF document into hierarchical structure using pymupdf4llm.
+
+    Converts PDF to markdown and extracts hierarchy from headings.
+
+    Args:
+        file_path: Path to PDF file
+
+    Returns:
+        dict: Hierarchical structure with nodes at each level
+    """
+    try:
+        if not PYMUPDF_AVAILABLE:
+            return {
+                'success': False,
+                'error': 'pymupdf4llm not installed. Run: pip install pymupdf4llm'
+            }
+
+        path = Path(file_path)
+        if not path.exists():
+            return {'success': False, 'error': f'File not found: {file_path}'}
+
+        # Convert PDF to markdown
+        md_text = pymupdf4llm.to_markdown(str(path))
+
+        # Parse markdown structure
+        source_id = path.stem
+        hierarchy = {
+            'source_id': source_id,
+            'file_path': str(path),
+            'format': 'pdf',
+            'L0': {
+                'node_id': source_id,
+                'title': source_id.replace('_', ' ').title(),
+                'level': 0,
+                'parent_id': None,
+                'content': md_text[:500],
+                'path': source_id,
+                'format': 'pdf'
+            },
+            'L1': [],
+            'L2': [],
+            'L3': []
+        }
+
+        # Extract hierarchy from markdown headings
+        lines = md_text.split('\n')
+        current_l1 = None
+        current_l2 = None
+        l1_idx = 0
+        l2_idx = 0
+        l3_idx = 0
+
+        for i, line in enumerate(lines):
+            # Detect headings
+            if line.startswith('# ') and not line.startswith('## '):
+                # L1: Chapter level (single #)
+                title = line.replace('# ', '').strip()
+                node_id = f"{source_id}_L1_{l1_idx}"
+                current_l1 = {
+                    'node_id': node_id,
+                    'title': title,
+                    'level': 1,
+                    'parent_id': source_id,
+                    'content': '',
+                    'path': f"{source_id} > {title}",
+                    'format': 'pdf'
+                }
+                hierarchy['L1'].append(current_l1)
+                current_l2 = None
+                l1_idx += 1
+
+            elif line.startswith('## '):
+                # L2: Section level (##)
+                title = line.replace('## ', '').strip()
+                node_id = f"{source_id}_L2_{l2_idx}"
+                parent_id = current_l1['node_id'] if current_l1 else source_id
+                current_l2 = {
+                    'node_id': node_id,
+                    'title': title,
+                    'level': 2,
+                    'parent_id': parent_id,
+                    'content': '',
+                    'path': f"{source_id} > ... > {title}",
+                    'format': 'pdf'
+                }
+                hierarchy['L2'].append(current_l2)
+                l2_idx += 1
+
+            elif line.startswith('### '):
+                # L3: Subsection level (###)
+                title = line.replace('### ', '').strip()
+                node_id = f"{source_id}_L3_{l3_idx}"
+                parent_id = current_l2['node_id'] if current_l2 else (current_l1['node_id'] if current_l1 else source_id)
+                hierarchy['L3'].append({
+                    'node_id': node_id,
+                    'title': title,
+                    'level': 3,
+                    'parent_id': parent_id,
+                    'content': '',
+                    'path': f"{source_id} > ... > ... > {title}",
+                    'format': 'pdf'
+                })
+                l3_idx += 1
+            else:
+                # Add content to current section
+                if line.strip():
+                    if current_l2:
+                        current_l2['content'] += line + '\n'
+                    elif current_l1:
+                        current_l1['content'] += line + '\n'
+
+        # Limit content length for each node
+        for node in hierarchy['L1']:
+            node['content'] = node['content'][:1000]
+        for node in hierarchy['L2']:
+            node['content'] = node['content'][:1000]
+        for node in hierarchy['L3']:
+            node['content'] = node['content'][:1000]
+
+        max_level = 3 if hierarchy['L3'] else (2 if hierarchy['L2'] else (1 if hierarchy['L1'] else 0))
+
+        return {
+            'success': True,
+            'hierarchy': hierarchy,
+            'levels': max_level,
+            'source_id': source_id
+        }
+
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Failed to parse PDF: {e}'
+        }
+
+
+def parse_epub_document(file_path: str) -> Dict[str, Any]:
+    """
+    Parse EPUB document into hierarchical structure.
+
+    Extracts chapters and builds hierarchy from TOC and content.
+
+    Args:
+        file_path: Path to EPUB file
+
+    Returns:
+        dict: Hierarchical structure with nodes at each level
+    """
+    try:
+        if not EPUB_AVAILABLE:
+            return {
+                'success': False,
+                'error': 'ebooklib not installed. Run: pip install ebooklib beautifulsoup4'
+            }
+
+        path = Path(file_path)
+        if not path.exists():
+            return {'success': False, 'error': f'File not found: {file_path}'}
+
+        # Read EPUB
+        book = epub.read_epub(str(path))
+        source_id = path.stem
+
+        hierarchy = {
+            'source_id': source_id,
+            'file_path': str(path),
+            'format': 'epub',
+            'L0': {
+                'node_id': source_id,
+                'title': source_id.replace('_', ' ').title(),
+                'level': 0,
+                'parent_id': None,
+                'content': '',
+                'path': source_id,
+                'format': 'epub'
+            },
+            'L1': [],
+            'L2': []
+        }
+
+        # Extract chapters
+        chapter_idx = 0
+        for item in book.get_items_of_type(ebooklib.ITEM_DOCUMENT):
+            try:
+                content_html = item.get_body_content()
+                soup = BeautifulSoup(content_html, 'lxml')
+
+                # Extract text from paragraphs
+                text = ' '.join([p.get_text() for p in soup.find_all(['p', 'div'])])
+
+                if not text.strip():
+                    continue
+
+                # Try to get chapter title
+                title_elem = soup.find(['h1', 'h2', 'title'])
+                title = title_elem.get_text() if title_elem else f"Chapter {chapter_idx + 1}"
+
+                node_id = f"{source_id}_L1_{chapter_idx}"
+                hierarchy['L1'].append({
+                    'node_id': node_id,
+                    'title': title,
+                    'level': 1,
+                    'parent_id': source_id,
+                    'content': text[:1000],
+                    'path': f"{source_id} > {title}",
+                    'format': 'epub'
+                })
+
+                chapter_idx += 1
+
+            except Exception as e:
+                # Skip problematic items
+                continue
+
+        # Set L0 content to first chapter preview
+        if hierarchy['L1']:
+            hierarchy['L0']['content'] = hierarchy['L1'][0]['content'][:500]
+
+        return {
+            'success': True,
+            'hierarchy': hierarchy,
+            'levels': 1 if hierarchy['L1'] else 0,
+            'source_id': source_id
+        }
+
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Failed to parse EPUB: {e}'
+        }
+
+
+def parse_mobi_document(file_path: str) -> Dict[str, Any]:
+    """
+    Parse MOBI document by converting to EPUB first.
+
+    Uses mobi library to unpack, then parses as EPUB.
+
+    Args:
+        file_path: Path to MOBI file
+
+    Returns:
+        dict: Hierarchical structure with nodes at each level
+    """
+    try:
+        if not MOBI_AVAILABLE:
+            return {
+                'success': False,
+                'error': 'mobi library not installed. Run: pip install mobi'
+            }
+
+        path = Path(file_path)
+        if not path.exists():
+            return {'success': False, 'error': f'File not found: {file_path}'}
+
+        # Create temporary directory for conversion
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Extract MOBI to EPUB
+            tempfile_path, epub_path = mobi.extract(str(path))
+
+            if not epub_path:
+                return {
+                    'success': False,
+                    'error': 'Failed to convert MOBI to EPUB'
+                }
+
+            # Parse as EPUB
+            result = parse_epub_document(epub_path)
+
+            # Update format in result
+            if result['success']:
+                result['hierarchy']['format'] = 'mobi'
+                result['hierarchy']['L0']['format'] = 'mobi'
+                for node in result['hierarchy'].get('L1', []):
+                    node['format'] = 'mobi'
+                for node in result['hierarchy'].get('L2', []):
+                    node['format'] = 'mobi'
+
+            return result
+
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Failed to parse MOBI: {e}'
+        }
+
+
+def ingest_document(file_path: str, domain: str = 'library') -> Dict[str, Any]:
+    """
+    Ingest a document (markdown, PDF, EPUB, or MOBI) into semantic memory.
+
+    Detects format and parses hierarchical structure, then embeds each level in ChromaDB.
+
+    Args:
+        file_path: Path to document file
+        domain: Memory domain (e.g., 'technical', 'library', 'personal')
 
     Returns:
         dict: Ingestion status and node counts
 
     Example:
-        >>> ingest_document("sources/technical/decisions.md", domain="technical")
-        {'success': True, 'nodes_added': 15, 'levels': 2}
+        >>> ingest_document("sources/library/power_electronics.pdf", domain="library")
+        {'success': True, 'nodes_added': 245, 'levels': 3, 'format': 'pdf'}
     """
     try:
         # Validate domain against config
@@ -275,8 +613,23 @@ def ingest_document(file_path: str, domain: str = 'library') -> Dict[str, Any]:
                 'error': f'Invalid domain. Must be one of: {valid_domains}'
             }
 
-        # Parse hierarchy
-        parse_result = parse_markdown_hierarchy(file_path)
+        # Detect format and route to appropriate parser
+        doc_format = detect_document_format(file_path)
+
+        if doc_format == 'markdown':
+            parse_result = parse_markdown_hierarchy(file_path)
+        elif doc_format == 'pdf':
+            parse_result = parse_pdf_document(file_path)
+        elif doc_format == 'epub':
+            parse_result = parse_epub_document(file_path)
+        elif doc_format == 'mobi':
+            parse_result = parse_mobi_document(file_path)
+        else:
+            return {
+                'success': False,
+                'error': f'Unsupported format: {doc_format}. Supported: markdown, pdf, epub, mobi'
+            }
+
         if not parse_result['success']:
             return parse_result
 
@@ -333,8 +686,25 @@ def ingest_document(file_path: str, domain: str = 'library') -> Dict[str, Any]:
                 'title': node['title'],
                 'path': node['path'],
                 'domain': domain,
-                'source_file': file_path
+                'source_file': file_path,
+                'format': hierarchy.get('format', 'markdown')
             })
+
+        # Add L3 (for PDFs and deep hierarchies)
+        if 'L3' in hierarchy:
+            for node in hierarchy['L3']:
+                ids.append(node['node_id'])
+                documents.append(node['content'])
+                metadatas.append({
+                    'level': node['level'],
+                    'parent_id': node['parent_id'],
+                    'node_id': node['node_id'],
+                    'title': node['title'],
+                    'path': node['path'],
+                    'domain': domain,
+                    'source_file': file_path,
+                    'format': hierarchy.get('format', 'markdown')
+                })
 
         # Upsert to collection (adds or updates)
         collection.upsert(
@@ -551,3 +921,20 @@ def rebuild_technical_domain() -> Dict[str, Any]:
         {'success': True, 'files_processed': 8, 'nodes_added': 124, 'domain': 'technical'}
     """
     return rebuild_domain('technical', source_paths=['private/design_docs'])
+
+
+def rebuild_library_domain() -> Dict[str, Any]:
+    """
+    Rebuild library memory domain from sources/library/.
+
+    Scans and embeds all documents in library: PDF, EPUB, MOBI, and markdown files.
+    Supports technical books, reference materials, and documentation.
+
+    Returns:
+        dict: Rebuild status with file counts
+
+    Example:
+        >>> rebuild_library_domain()
+        {'success': True, 'files_processed': 12, 'nodes_added': 1847, 'domain': 'library'}
+    """
+    return rebuild_domain('library', source_paths=['sources/library'])
